@@ -1,102 +1,146 @@
 """
 API routes for traffic law retrieval system
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from typing import Dict, Any
 import time
 
-from app.models.schemas import (
-    QueryRequest,
-    QueryResponse,
-    StatsResponse,
-    AlignmentReviewRequest,
-    AlignmentReviewResponse,
-)
-from app.api.dependencies import (
-    get_vector_searcher,
-    get_image_captioner,
-    get_alignment_manager,
-    get_reranker,
-    get_context_builder,
-    get_llm_generator,
-    get_db_manager,
-    get_chroma_manager,
-)
-from app.utils.vector_search import VectorSearcher
-from app.utils.captioner import ImageCaptioner
-from app.utils.alignment import AlignmentManager
-from app.utils.reranker import ReRanker
-from app.utils.context_builder import ContextBuilder
-from app.utils.llm_generator import LLMGenerator
-from app.models.database import DatabaseManager, ChromaDBManager
+from app.config import settings
 
 
 router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
 
 
-@router.post("/query", response_model=QueryResponse)
-async def query(
-    request: QueryRequest,
-    vector_searcher: VectorSearcher = Depends(get_vector_searcher),
-    captioner: ImageCaptioner = Depends(get_image_captioner),
-    alignment_manager: AlignmentManager = Depends(get_alignment_manager),
-    reranker: ReRanker = Depends(get_reranker),
-    context_builder: ContextBuilder = Depends(get_context_builder),
-    llm_generator: LLMGenerator = Depends(get_llm_generator),
-) -> QueryResponse:
+# Global instances (will be initialized in main.py)
+retrieval_engine = None
+context_builder = None
+llm_generator = None
+mapping = None
+
+
+def set_dependencies(engine, builder, generator, map_instance):
+    """Set global dependencies"""
+    global retrieval_engine, context_builder, llm_generator, mapping
+    retrieval_engine = engine
+    context_builder = builder
+    llm_generator = generator
+    mapping = map_instance
+
+
+@router.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    """
+    Render main Q&A page
+    """
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "title": "交通法規智慧檢索系統"}
+    )
+
+
+@router.post("/api/query")
+async def query(request: Dict[str, Any]) -> Dict[str, Any]:
     """
     Main query endpoint for traffic law retrieval
 
     Process:
-    1. Optional image captioning
-    2. Vector search for knowledge points
-    3. KP-Case alignment lookup
-    4. Supplementary case retrieval
-    5. Multi-stage re-ranking
-    6. Context assembly
-    7. LLM generation
+    1. Retrieve laws and cases with expansion
+    2. Build context
+    3. Generate LLM response
     """
-    pass
+    try:
+        query_text = request.get("query", "").strip()
+
+        if not query_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Query text cannot be empty"
+            )
+
+        start_time = time.time()
+
+        # Step 1: Retrieval with expansion
+        laws, cases = retrieval_engine.retrieve(query_text)
+
+        # Step 2: Build context
+        system_prompt = context_builder.build_system_prompt()
+        context = context_builder.build_context(laws, cases, query_text)
+
+        # Debug: Print full context
+        print("\n" + "="*60)
+        print("檢索上下文DEBUG")
+        print("="*60)
+        print(context)
+        print("="*60 + "\n")
+
+        # Step 3: Generate response
+        answer = llm_generator.generate_response(
+            system_prompt=system_prompt,
+            context=context,
+            query_text=query_text
+        )
+
+        # Debug: Print answer
+        print(f"\n生成的回答: {answer}\n")
+
+        # Extract citations from retrieval results (not from LLM answer)
+        law_citations = [law_data['metadata']['cited_law'] for law_data in laws.values()]
+        case_citations = [case_id for case_id in cases.keys()]
+
+        elapsed_time = time.time() - start_time
+
+        return {
+            "success": True,
+            "query": query_text,
+            "answer": answer,
+            "retrieved_laws": len(laws),
+            "retrieved_cases": len(cases),
+            "law_citations": law_citations,
+            "case_citations": case_citations,
+            "processing_time": round(elapsed_time, 2),
+            "context_preview": context[:500] + "..." if len(context) > 500 else context
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing query: {str(e)}"
+        )
 
 
-@router.get("/stats", response_model=StatsResponse)
-async def get_stats(
-    db_manager: DatabaseManager = Depends(get_db_manager),
-    chroma_manager: ChromaDBManager = Depends(get_chroma_manager),
-) -> StatsResponse:
+@router.get("/api/stats")
+async def get_stats() -> Dict[str, Any]:
     """
-    Get system statistics and metrics
+    Get system statistics
 
     Returns:
-        Statistics including Hit@k metrics and system counts
+        Statistics including mapping counts
     """
-    pass
+    try:
+        stats = mapping.get_statistics()
+
+        return {
+            "success": True,
+            "statistics": stats
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving stats: {str(e)}"
+        )
 
 
-@router.post("/alignments/review", response_model=AlignmentReviewResponse)
-async def review_alignment(
-    request: AlignmentReviewRequest,
-    db_manager: DatabaseManager = Depends(get_db_manager),
-) -> AlignmentReviewResponse:
-    """
-    Review and update KP-Case alignment status
-
-    For human review of automated alignments
-    """
-    pass
-
-
-@router.get("/health")
+@router.get("/api/health")
 async def health_check() -> Dict[str, str]:
     """
     Health check endpoint
     """
-    pass
-
-
-@router.get("/")
-async def root() -> Dict[str, str]:
-    """
-    Root endpoint with API information
-    """
-    pass
+    return {
+        "status": "healthy",
+        "service": "交通法規智慧檢索系統",
+        "version": settings.API_VERSION
+    }

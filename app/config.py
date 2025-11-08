@@ -8,6 +8,9 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings"""
 
+    # OpenAI API Key
+    OPENAI_API_KEY: str
+
     # API Settings
     API_TITLE: str = "智慧交通法規與判例檢索輔助系統"
     API_VERSION: str = "1.0.0"
@@ -29,7 +32,7 @@ class Settings(BaseSettings):
     RERANK_TOP_N: int = 5
 
     # LLM Settings
-    LLM_MODEL: str = "gpt-4"
+    LLM_MODEL: str = "gpt-5-nano"
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 2000
     LLM_TIMEOUT: int = 30

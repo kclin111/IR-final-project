@@ -3,149 +3,175 @@ LLM generation utilities for creating structured responses
 """
 from typing import Dict, Any, List, Optional
 import json
-from app.models.schemas import QueryResponse, Citation, AlignmentUsed
+import re
+from openai import OpenAI
 from app.config import settings
 
 
 class LLMGenerator:
     """
     LLM-based response generator
-    Generates structured JSON output with citations and conclusions
+    Generates responses with proper citations
     """
 
     def __init__(self, model_name: str = None, temperature: float = None):
+        """
+        Initialize LLM generator
+
+        Args:
+            model_name: OpenAI model name
+            temperature: Sampling temperature
+        """
         self.model_name = model_name or settings.LLM_MODEL
         self.temperature = temperature or settings.LLM_TEMPERATURE
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     def generate_response(
         self,
+        system_prompt: str,
         context: str,
-        query_text: str,
-        knowledge_points: List[Dict[str, Any]],
-        cases: List[Dict[str, Any]],
-    ) -> QueryResponse:
+        query_text: str
+    ) -> str:
         """
-        Generate structured response from context
+        Generate response from context
 
         Args:
+            system_prompt: System instruction
             context: Assembled context
             query_text: Original query
-            knowledge_points: Retrieved KPs
-            cases: Retrieved cases
 
         Returns:
-            Structured QueryResponse
+            Generated response text
         """
-        pass
+        user_prompt = f"{context}\n\n請根據以上法條與判例,回答以下問題:\n{query_text}"
 
-    def generate_conclusion(self, context: str, query_text: str) -> str:
-        """
-        Generate conclusion text
+        try:
+            # Build API call parameters
+            api_params = {
+                "model": self.model_name,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            }
 
-        Args:
-            context: Context string
-            query_text: Query text
+            # Only add temperature for models that support it (not gpt-5-nano)
+            if "gpt-5" not in self.model_name:
+                api_params["temperature"] = self.temperature
 
-        Returns:
-            Conclusion text
-        """
-        pass
+            # Only add max_completion_tokens for models that support it (not gpt-5-nano)
+            if "gpt-5" not in self.model_name:
+                api_params["max_completion_tokens"] = settings.LLM_MAX_TOKENS
 
-    def generate_checklist(
-        self, context: str, query_text: str
+            response = self.client.chat.completions.create(**api_params)
+
+            # Debug: Print full response
+            print(f"\n[LLM DEBUG] Full response object:")
+            print(f"  Model: {response.model}")
+            print(f"  Finish reason: {response.choices[0].finish_reason}")
+            print(f"  Content type: {type(response.choices[0].message.content)}")
+            print(f"  Content value: '{response.choices[0].message.content}'")
+            print(f"  Content length: {len(response.choices[0].message.content) if response.choices[0].message.content else 0}")
+
+            content = response.choices[0].message.content
+            if content is None:
+                print("[LLM DEBUG] WARNING: content is None!")
+                return ""
+
+            return content
+
+        except Exception as e:
+            print(f"Error generating LLM response: {e}")
+            return f"抱歉,生成回應時發生錯誤: {str(e)}"
+
+    def generate_structured_response(
+        self,
+        system_prompt: str,
+        context: str,
+        query_text: str,
+        response_schema: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Generate requirement checklist
+        Generate structured JSON response
 
         Args:
-            context: Context string
-            query_text: Query text
+            system_prompt: System instruction
+            context: Assembled context
+            query_text: Original query
+            response_schema: JSON schema for response
 
         Returns:
-            Checklist dictionary
+            Structured response dictionary
         """
-        pass
+        user_prompt = f"""{context}
 
-    def extract_citations(
-        self,
-        generated_text: str,
-        knowledge_points: List[Dict[str, Any]],
-        cases: List[Dict[str, Any]],
-    ) -> List[Citation]:
+請根據以上法條與判例,以 JSON 格式回答以下問題:
+{query_text}
+
+請按照以下格式回應:
+{json.dumps(response_schema, ensure_ascii=False, indent=2)}
+"""
+
+        try:
+            # Build API call parameters
+            api_params = {
+                "model": self.model_name,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "max_completion_tokens": settings.LLM_MAX_TOKENS,
+                "response_format": {"type": "json_object"}
+            }
+
+            # Only add temperature for models that support it (not gpt-5-nano)
+            if "gpt-5" not in self.model_name:
+                api_params["temperature"] = self.temperature
+
+            response = self.client.chat.completions.create(**api_params)
+
+            content = response.choices[0].message.content
+            return json.loads(content)
+
+        except Exception as e:
+            print(f"Error generating structured response: {e}")
+            return {
+                "answer": f"抱歉,生成回應時發生錯誤: {str(e)}",
+                "citations": [],
+                "warnings": [str(e)]
+            }
+
+    def extract_law_citations(self, text: str) -> List[str]:
         """
-        Extract and validate citations from generated text
+        Extract law citations from text
 
         Args:
-            generated_text: Generated conclusion text
-            knowledge_points: Available KPs
-            cases: Available cases
+            text: Generated text
 
         Returns:
-            List of validated citations
+            List of cited law IDs
         """
-        pass
+        # Pattern: 道路交通管理處罰條例第XX條
+        pattern = r'道路交通管理處罰條例第\s*\d+(?:-\d+)?\s*條'
+        matches = re.findall(pattern, text)
 
-    def validate_citations(
-        self,
-        citations: List[Citation],
-        available_sources: List[Dict[str, Any]],
-    ) -> tuple[List[Citation], List[str]]:
+        # Normalize spacing
+        citations = [re.sub(r'\s+', ' ', match) for match in matches]
+
+        return list(set(citations))  # Deduplicate
+
+    def extract_case_citations(self, text: str) -> List[str]:
         """
-        Validate citations against available sources
+        Extract case citations from text
 
         Args:
-            citations: Extracted citations
-            available_sources: Available source documents
+            text: Generated text
 
         Returns:
-            Tuple of (valid_citations, warnings)
+            List of cited case IDs
         """
-        pass
+        # Pattern: [CASE_ID] or 判決 [CASE_ID]
+        pattern = r'\[([A-Z]+,\d+,[^,]+,\d+,\d+,\d+)\]'
+        matches = re.findall(pattern, text)
 
-    def format_structured_output(
-        self,
-        conclusion: str,
-        checklist: Dict[str, Any],
-        citations: List[Citation],
-        alignments: List[AlignmentUsed],
-        warnings: List[str],
-    ) -> Dict[str, Any]:
-        """
-        Format final structured JSON output
-
-        Args:
-            conclusion: Generated conclusion
-            checklist: Requirement checklist
-            citations: Validated citations
-            alignments: Alignments used
-            warnings: Warning messages
-
-        Returns:
-            Structured dictionary
-        """
-        pass
-
-    def call_llm(self, prompt: str, response_format: Optional[Dict] = None) -> str:
-        """
-        Call LLM with prompt
-
-        Args:
-            prompt: Input prompt
-            response_format: Optional JSON schema for structured output
-
-        Returns:
-            LLM response text
-        """
-        pass
-
-    def parse_json_response(self, response_text: str) -> Dict[str, Any]:
-        """
-        Parse JSON from LLM response
-
-        Args:
-            response_text: LLM response
-
-        Returns:
-            Parsed JSON dictionary
-        """
-        pass
+        return list(set(matches))  # Deduplicate

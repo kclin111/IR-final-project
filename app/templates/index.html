@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚦 交通法規智慧檢索系統</h1>
+            <p class="subtitle">Traffic Law & Case Retrieval System</p>
+        </header>
+
+        <main>
+            <div class="query-section">
+                <div class="input-group">
+                    <textarea
+                        id="queryInput"
+                        placeholder="請輸入您的交通法規相關問題，例如：「闖紅燈會受到什麼處罰？」"
+                        rows="4"
+                    ></textarea>
+                    <button id="submitBtn" onclick="submitQuery()">
+                        <span id="btnText">🔍 查詢</span>
+                        <span id="btnLoader" class="loader" style="display: none;"></span>
+                    </button>
+                </div>
+
+                <div class="stats-section">
+                    <button onclick="loadStats()" class="stats-btn">📊 系統統計</button>
+                    <div id="statsDisplay" style="display: none;"></div>
+                </div>
+            </div>
+
+            <div id="resultSection" class="result-section" style="display: none;">
+                <div class="result-header">
+                    <h2>📋 查詢結果</h2>
+                    <div class="meta-info">
+                        <span id="processingTime"></span>
+                        <span id="retrievalInfo"></span>
+                    </div>
+                </div>
+
+                <div class="answer-box">
+                    <h3>💡 回答</h3>
+                    <div id="answerContent" class="answer-content"></div>
+                </div>
+
+                <div class="citations-box">
+                    <h3>📚 引用來源</h3>
+                    <div id="citationsContent">
+                        <div class="citation-group">
+                            <h4>相關法條</h4>
+                            <ul id="lawCitations" class="citation-list"></ul>
+                        </div>
+                        <div class="citation-group">
+                            <h4>相關判例</h4>
+                            <ul id="caseCitations" class="citation-list"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <details class="context-details">
+                    <summary>🔍 查看檢索上下文 (Debug)</summary>
+                    <pre id="contextPreview"></pre>
+                </details>
+            </div>
+
+            <div id="errorSection" class="error-section" style="display: none;">
+                <h3>❌ 錯誤</h3>
+                <p id="errorMessage"></p>
+            </div>
+        </main>
+
+        <footer>
+            <p>⚖️ 本系統僅供參考，不構成正式法律意見</p>
+            <p class="version">v1.0.0 | 資訊檢索與擷取 Final Project</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

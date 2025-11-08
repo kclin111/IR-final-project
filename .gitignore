@@ -24,6 +24,7 @@ wheels/
 venv/
 env/
 ENV/
+.venv/
 
 # IDE
 .vscode/
@@ -46,7 +47,13 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-data/
+
+# Data (keep structure, ignore contents except mapping)
+data/*
+!data/.gitkeep
+!data/law_case_mapping.json
+!data/cleaned_道路交通管理處罰條例.csv
+!data/traffic_cases_chunks.jsonl
 
 # Logs
 *.log
@@ -55,5 +62,6 @@ data/
 .DS_Store
 Thumbs.db
 
-# ChromaDB
+# ChromaDB (now in data/)
 chroma/
+data/chroma_db/
