@@ -65,3 +65,7 @@ Thumbs.db
 # ChromaDB (now in data/)
 chroma/
 data/chroma_db/
+
+# docs
+paper/
+presentation/
