@@ -8,8 +8,8 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings"""
 
-    # OpenAI API Key
-    OPENAI_API_KEY: str
+    # OpenAI API Key (optional if using HuggingFace embeddings)
+    OPENAI_API_KEY: Optional[str] = None
 
     # API Settings
     API_TITLE: str = "智慧交通法規與判例檢索輔助系統"
@@ -32,14 +32,16 @@ class Settings(BaseSettings):
     RERANK_TOP_N: int = 5
 
     # LLM Settings
-    LLM_MODEL: str = "gpt-5-nano"
+    LLM_MODEL: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    LLM_PROVIDER: str = "huggingface"  # "openai" or "huggingface"
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 2000
     LLM_TIMEOUT: int = 30
 
     # Embedding Settings
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
-    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_MODEL: str = "BAAI/bge-m3"
+    EMBEDDING_DIMENSION: int = 1024
+    EMBEDDING_PROVIDER: str = "huggingface"  # "openai" or "huggingface"
 
     # VLM Settings (Optional)
     ENABLE_VLM: bool = False

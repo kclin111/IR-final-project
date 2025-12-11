@@ -3,8 +3,9 @@ import json
 import re
 
 # ========== 基本設定 ==========
-INPUT_DIR = r"../data/filtered_cases"          # 你的原始 JSON 根目錄
-OUTPUT_JSONL = r"../data/traffic_cases_chunks.jsonl"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+INPUT_DIR = os.path.join(script_dir, "../data/filtered_cases")          # 你的原始 JSON 根目錄
+OUTPUT_JSONL = os.path.join(script_dir, "../data/traffic_cases_chunks.jsonl")
 KEYWORD = "道路交通管理處罰條例"
 
 # chunk 長度與 overlap 設定
@@ -165,6 +166,9 @@ def process_case(path: str):
 
     # 抽取條文（僅交通管理處罰條例）
     cited_traffic_laws = extract_traffic_laws(jfull)
+
+    if not cited_traffic_laws:
+        return None
 
     jid = data.get("JID") or data.get("jid") or os.path.basename(path)
 

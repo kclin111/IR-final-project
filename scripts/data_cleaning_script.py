@@ -3,11 +3,10 @@ import json
 import shutil
 from tqdm import tqdm
 
-root_folder = r"../data/202508--(20251015Update)/202508"  # 改成你的路徑
-output_folder = r"../data/filtered_cases"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+root_folder = os.path.join(script_dir, "../data/202508")
+output_folder = os.path.join(script_dir, "../data/filtered_cases")
 keyword = "道路交通管理處罰條例"
-
-os.makedirs(output_folder, exist_ok=True)
 
 for dirpath, _, filenames in os.walk(root_folder):
     for filename in tqdm(filenames, desc=f"掃描中: {os.path.basename(dirpath)}"):

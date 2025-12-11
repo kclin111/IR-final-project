@@ -1,0 +1,11 @@
+[project]
+name = "ir-final-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "accelerate>=1.12.0",
+    "langchain-huggingface>=1.1.0",
+    "pymupdf>=1.26.6",
+]

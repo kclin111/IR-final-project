@@ -9,6 +9,7 @@ from pathlib import Path
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from app.config import settings
 
@@ -26,14 +27,24 @@ class VectorStoreBuilder:
 
         Args:
             persist_directory: Directory to persist ChromaDB
-            embedding_model: OpenAI embedding model name
+            embedding_model: Embedding model name
         """
         self.persist_directory = persist_directory
         self.embedding_model = embedding_model or settings.EMBEDDING_MODEL
-        self.embeddings = OpenAIEmbeddings(
-            model=self.embedding_model,
-            openai_api_key=settings.OPENAI_API_KEY
-        )
+        self.embedding_provider = settings.EMBEDDING_PROVIDER
+        
+        # Initialize embeddings based on provider
+        if self.embedding_provider == "huggingface":
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=self.embedding_model,
+                model_kwargs={'device': 'cpu'},  # Use 'cuda' if GPU available
+                encode_kwargs={'normalize_embeddings': True}  # BGE models need normalization
+            )
+        else:
+            self.embeddings = OpenAIEmbeddings(
+                model=self.embedding_model,
+                openai_api_key=settings.OPENAI_API_KEY
+            )
 
         # Ensure persist directory exists
         Path(persist_directory).mkdir(parents=True, exist_ok=True)
