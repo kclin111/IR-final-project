@@ -52,13 +52,13 @@ def main():
 
     # Rebuild if requested
     if args.rebuild:
-        print("🗑️  Deleting existing collections...")
+        print("Deleting existing collections...")
         builder.delete_collection("law_knowledge_points")
         builder.delete_collection("case_applications")
         print()
 
     # Build law collection
-    print("📚 Building law knowledge points collection...")
+    print("Building law knowledge points collection...")
     print(f"   Source: {args.law_csv}")
     law_collection = builder.build_law_collection(
         csv_path=args.law_csv,
@@ -67,7 +67,7 @@ def main():
     print()
 
     # Build case collection
-    print("⚖️  Building case applications collection...")
+    print("Building case applications collection...")
     print(f"   Source: {args.case_jsonl}")
     case_collection = builder.build_case_collection(
         jsonl_path=args.case_jsonl,
@@ -77,13 +77,13 @@ def main():
 
     # List all collections
     collections = builder.list_collections()
-    print("✅ Vector stores built successfully!")
+    print("Vector stores built successfully!")
     print(f"   Persist directory: {args.persist_dir}")
     print(f"   Collections: {', '.join(collections)}")
     print()
 
     # Verify collections
-    print("🔍 Verifying collections...")
+    print("Verifying collections...")
     law_count = law_collection._collection.count()
     case_count = case_collection._collection.count()
 

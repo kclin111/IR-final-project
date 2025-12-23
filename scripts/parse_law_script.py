@@ -6,9 +6,10 @@ import unicodedata
 
 # ========= 基本設定 =========
 # 單一要 parsing 的 PDF 檔案名稱（跟本程式放同一層，或改成你的實際路徑）
-INPUT_PDF = os.path.join(os.path.dirname(__file__), "..", "data", "道路交通管理處罰條例.pdf")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+INPUT_PDF = os.path.join(script_dir, "../data/道路交通管理處罰條例.pdf")
 # 輸出資料夾與檔名
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+OUTPUT_DIR = os.path.join(script_dir, "../data")
 OUTPUT_CSV = os.path.join(OUTPUT_DIR, "cleaned_道路交通管理處罰條例.csv")
 
 def norm(s: str) -> str:

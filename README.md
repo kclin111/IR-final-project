@@ -12,7 +12,6 @@ Traffic Law and Case Retrieval System with RAG and KP-Case Alignment
 - KP-Case 智慧對齊
 - 多階段重排 Re-ranking
 - LLM 生成結構化結論
-- 可選圖片分析 (VLM)
 - 引用追溯與驗證
 
 ## 專案架構
@@ -134,19 +133,3 @@ mypy app/
 ### SQLite Tables
 
 - `kp_app_mapping` - KP-Case 對齊表
-
-## 評測指標
-
-- Hit@5 (Statutes): ≥ 0.70
-- Hit@5 (Cases): ≥ 0.60
-- Alignment Precision: ≥ 0.65
-- 幻覺率: ≤ 5%
-- 平均延遲: ≤ 3s
-
-## 授權
-
-本專案為教育用途開發
-
-## 聯絡資訊
-
-如有問題請聯繫專案負責人
