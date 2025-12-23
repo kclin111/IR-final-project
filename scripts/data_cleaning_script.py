@@ -4,8 +4,8 @@ import shutil
 from tqdm import tqdm
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-root_folder = os.path.join(script_dir, "../data/202508")
-output_folder = os.path.join(script_dir, "../data/filtered_cases")
+root_folder = os.path.join(script_dir, "../data/202509")
+output_folder = os.path.join(script_dir, "../data/filtered_cases_evaluation")
 keyword = "道路交通管理處罰條例"
 
 for dirpath, _, filenames in os.walk(root_folder):

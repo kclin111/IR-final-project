@@ -7,7 +7,6 @@ from collections import defaultdict
 import math
 import unicodedata
 
-# Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -15,6 +14,10 @@ from app.utils.vector_store import VectorStoreBuilder
 from generate_ground_truth import GroundTruthGenerator
 from simple_retrieval import SimpleRetriever
 
+def load_ground_truth(path):
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data["samples"]
 
 class RetrievalEvaluator:
     
@@ -43,7 +46,6 @@ class RetrievalEvaluator:
         
         return law_data
     
-    
     def precision_at_k(self, retrieved: List[str], relevant: List[str], k: int) -> float:
         """計算 Precision@K"""
         retrieved_k = retrieved[:k]
@@ -68,7 +70,6 @@ class RetrievalEvaluator:
     
     def ndcg_at_k(self, retrieved: List[str], relevant: List[str], k: int) -> float:
         """計算 NDCG@K"""
-        import math
         
         relevant_set = set(relevant)
         
@@ -83,8 +84,16 @@ class RetrievalEvaluator:
         
         return dcg / idcg if idcg > 0 else 0.0
     
+    def hit_k(self, retrieved: List[str], relevant: List[str], k: int) -> float:
+        """計算 Hit@K"""
+        retrieved_k = retrieved[:k]
+        relevant_set = set(relevant)
+        for r in retrieved_k:
+            if r in relevant_set:
+                return 1.0
+        return 0.0
+    
     def norm(self, s: str) -> str:
-        """基本正規化：全形轉半形、去掉零寬空白、trim。"""
         if not isinstance(s, str):
             return ""
         s = unicodedata.normalize("NFKC", s)
@@ -104,7 +113,7 @@ class RetrievalEvaluator:
     ) -> Dict[str, Any]:
         print(f"\n評估法條檢索效能 (n={len(test_samples)})...")
         
-        results = {k: {'precision': [], 'recall': [], 'mrr': [], 'ndcg': []} 
+        results = {k: {'precision': [], 'recall': [], 'mrr': [], 'ndcg': [], 'hit': []} 
                    for k in top_k_values}
         
         max_k = max(top_k_values)
@@ -135,13 +144,17 @@ class RetrievalEvaluator:
                 results[k]['ndcg'].append(
                     self.ndcg_at_k(retrieved_laws, ground_truth, k)
                 )
-        
+                results[k]['hit'].append(
+                    self.hit_k(retrieved_laws, ground_truth, k)
+                )
+
         summary = {}
         for k in top_k_values:
             summary[f'P@{k}'] = sum(results[k]['precision']) / len(results[k]['precision'])
             summary[f'R@{k}'] = sum(results[k]['recall']) / len(results[k]['recall'])
             summary[f'MRR@{k}'] = sum(results[k]['mrr']) / len(results[k]['mrr'])
             summary[f'NDCG@{k}'] = sum(results[k]['ndcg']) / len(results[k]['ndcg'])
+            summary[f'Hit@{k}'] = sum(results[k]['hit']) / len(results[k]['hit'])
         
         return summary
     
@@ -151,18 +164,8 @@ class RetrievalEvaluator:
         top_k_values: List[int] = [1, 3, 5, 10],
         law_case_mapping_path: str = "data/law_case_mapping.json"
     ) -> Dict[str, Any]:
-        """
-        評估 法條→案例→法條 的檢索效能
-        
-        流程：
-        1. Query → 檢索法條
-        2. 法條 → 透過 law_case_mapping 找到相關判例
-        3. 判例 → 提取判例中引用的法條
-        4. 與 ground truth 比對
-        """
         print(f"\n評估 法條→案例→法條 檢索效能 (n={len(test_samples)})...")
         
-        # 載入 law_case_mapping
         mapping_path = project_root / law_case_mapping_path
         if not mapping_path.exists():
             print(f"Warning: {mapping_path} not found, skipping this evaluation")
@@ -171,7 +174,7 @@ class RetrievalEvaluator:
         with open(mapping_path, 'r', encoding='utf-8') as f:
             law_case_mapping = json.load(f)
         
-        results = {k: {'precision': [], 'recall': [], 'mrr': [], 'ndcg': []} 
+        results = {k: {'precision': [], 'recall': [], 'mrr': [], 'ndcg': [], 'hit': []} 
                    for k in top_k_values}
         
         max_k = max(top_k_values)
@@ -180,21 +183,17 @@ class RetrievalEvaluator:
             query = sample['query']
             ground_truth = sample.get('ground_truth_laws') or sample.get('relevant_laws', [])
             
-            # Step 1: Query → 檢索法條
             law_search_results = self.law_collection.similarity_search_with_score(
                 query, k=max_k
             )
             
-            # 提取檢索到的法條
             retrieved_law_ids = [
                 doc.metadata.get('cited_law', '') 
                 for doc, score in law_search_results
             ]
 
-            # 正規化法條 ID
             retrieved_law_ids = [self.normalize_law_id(law_id) for law_id in retrieved_law_ids]
 
-            # Step 2: 法條 → 透過 law_case_mapping 找到相關判例的 chunk_ids
             related_case_chunk_ids = set()
             for law_id in retrieved_law_ids:
                 if law_id in law_case_mapping:
@@ -203,15 +202,20 @@ class RetrievalEvaluator:
                         for chunk_id in case.get('chunk_ids', []):
                             related_case_chunk_ids.add(chunk_id)
             
-            # Step 3: 從判例 chunks 中提取引用的法條
-            # 從 case_collection 取得這些 chunk_ids 的 metadata
+
             final_retrieved_laws = []
             seen = set()
-            
+
+            for law in retrieved_law_ids:
+                if law not in seen:
+                    seen.add(law)
+                    final_retrieved_laws.append(law)
+
+            final_retrieved_laws = final_retrieved_laws[:5]
+
             if related_case_chunk_ids:
-                # 使用 chunk_id 查詢 case_collection
                 case_results = self.case_collection.get(
-                    ids=list(related_case_chunk_ids)[:100]  # 限制數量避免太慢
+                    ids=list(related_case_chunk_ids)[:100]
                 )
                 
                 if case_results and case_results.get('metadatas'):
@@ -226,10 +230,8 @@ class RetrievalEvaluator:
                         except:
                             continue
 
-            # 正規化 ground truth 法條 ID
             ground_truth = [self.normalize_law_id(law_id) for law_id in ground_truth]
 
-            # 計算各 K 值的指標
             for k in top_k_values:
                 results[k]['precision'].append(
                     self.precision_at_k(final_retrieved_laws, ground_truth, k)
@@ -243,28 +245,28 @@ class RetrievalEvaluator:
                 results[k]['ndcg'].append(
                     self.ndcg_at_k(final_retrieved_laws, ground_truth, k)
                 )
-        
-        # 計算平均值
+                results[k]['hit'].append(
+                    self.hit_k(final_retrieved_laws, ground_truth, k)
+                )
+
         summary = {}
         for k in top_k_values:
             summary[f'P@{k}'] = sum(results[k]['precision']) / len(results[k]['precision'])
             summary[f'R@{k}'] = sum(results[k]['recall']) / len(results[k]['recall'])
             summary[f'MRR@{k}'] = sum(results[k]['mrr']) / len(results[k]['mrr'])
             summary[f'NDCG@{k}'] = sum(results[k]['ndcg']) / len(results[k]['ndcg'])
+            summary[f'Hit@{k}'] = sum(results[k]['hit']) / len(results[k]['hit'])
         
         return summary
     
     def print_results(self, results: Dict[str, float], title: str):
-        """印出評估結果"""
         print(f"\n{'='*60}")
         print(f"  {title}")
         print('='*60)
         
-        # 整理成表格
-        metrics = ['P', 'R', 'MRR', 'NDCG']
+        metrics = ['P', 'MRR', 'Hit']
         k_values = sorted(set(int(k.split('@')[1]) for k in results.keys()))
         
-        # 印出表頭
         header = f"{'Metric':<10}" + "".join(f"{'@'+str(k):>10}" for k in k_values)
         print(header)
         print("-" * len(header))
@@ -279,32 +281,24 @@ class RetrievalEvaluator:
                     row += f"{'N/A':>10}"
             print(row)
 
-
 def main():
     evaluator = RetrievalEvaluator()
-    gt_generator = GroundTruthGenerator()
 
-    synthetic_samples = gt_generator.generate_synthetic_queries(queries_per_law=2)
+    synthetic_samples = load_ground_truth("evaluation/ground_truth_synthetic.json")
 
-    synthetic_results = evaluator.evaluate_law_retrieval(synthetic_samples)
-    evaluator.print_results(synthetic_results, "RAG 檢索法條")
+    synthetic_results_rag = evaluator.evaluate_law_retrieval(synthetic_samples)
+    evaluator.print_results(synthetic_results_rag, "RAG 檢索法條")
 
-    synthetic_results2 = evaluator.evaluate_case_to_law_retrieval(synthetic_samples)
-    evaluator.print_results(synthetic_results2, "RAG 檢索法條＋案例擴充")
+    synthetic_results_expanded = evaluator.evaluate_case_to_law_retrieval(synthetic_samples)
+    evaluator.print_results(synthetic_results_expanded, "RAG 檢索法條＋案例擴充")
 
-    print("""
-評估指標說明：
-- P@K (Precision@K): 前 K 個結果中相關的比例
-- R@K (Recall@K): 找到的相關結果佔所有相關結果的比例  
-- MRR@K: 第一個正確結果的排名倒數（越高越好）
-- NDCG@K: 考慮排名位置的相關性評估（越高越好）
+    case_samples = load_ground_truth("evaluation/ground_truth_case.json")
 
-建議：
-- P@1 > 0.5: 檢索準確度良好
-- R@5 > 0.7: 召回率良好
-- MRR > 0.5: 排序品質良好
-""")
+    case_results_rag = evaluator.evaluate_law_retrieval(case_samples)
+    evaluator.print_results(case_results_rag, "RAG 檢索法條")
 
+    case_results_expanded = evaluator.evaluate_case_to_law_retrieval(case_samples)
+    evaluator.print_results(case_results_expanded, "RAG 檢索法條＋案例擴充")
 
 if __name__ == "__main__":
     main()

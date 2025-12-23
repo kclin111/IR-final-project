@@ -71,6 +71,37 @@ class GroundTruthGenerator:
         
         return samples
     
+    def generate_from_cases(
+            self, 
+            case_path: str = "data/traffic_cases_chunks_evaluation.jsonl"
+            ) -> List[Dict]:
+        jsonl_path = project_root / case_path
+        if not jsonl_path.exists():
+            print(f"Cases JSONL not found: {jsonl_path}")
+            return []
+        
+        samples = []
+        with open(jsonl_path, 'r', encoding='utf-8') as f:
+            for j, line in enumerate(f):
+                case = json.loads(line)
+                cited_laws = case.get('cited_traffic_laws', [])
+                if not cited_laws:
+                    continue
+                
+                chunks = case.get('chunks', [])[0]
+                if not chunks:
+                    continue
+                query_text = chunks.get('text', '').strip()
+
+                samples.append({
+                    'query_id': f"case_{j}",
+                    'query': query_text,
+                    'relevant_laws': cited_laws,
+                    'source': 'case'
+                })
+        return samples
+
+    
     def export_for_annotation(
         self,
         samples: List[Dict],
@@ -152,21 +183,34 @@ class GroundTruthGenerator:
 def main():
     generator = GroundTruthGenerator()
     
-    print("\n=== Ground Truth ===")
     synthetic_samples = generator.generate_synthetic_queries(queries_per_law=2)
     print(f"{len(synthetic_samples)} samples generated from synthetic queries.")
-    
-    all_samples = synthetic_samples
+
     generator.export_for_annotation(
-        all_samples,
-        output_path="evaluation/ground_truth.json",
+        synthetic_samples,
+        output_path="evaluation/ground_truth_synthetic.json",
         include_candidates=True,
         num_candidates=10
     )
     
     generator.export_to_csv(
-        all_samples,
-        output_path="evaluation/ground_truth.csv"
+        synthetic_samples,
+        output_path="evaluation/ground_truth_synthetic.csv"
+    )
+
+    case_samples = generator.generate_from_cases()
+    print(f"{len(case_samples)} samples generated from real cases.")
+
+    generator.export_for_annotation(
+        case_samples,
+        output_path="evaluation/ground_truth_case.json",
+        include_candidates=True,
+        num_candidates=10
+    )
+
+    generator.export_to_csv(
+        case_samples,
+        output_path="evaluation/ground_truth_case.csv"
     )
 
 if __name__ == "__main__":

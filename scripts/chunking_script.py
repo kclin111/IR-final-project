@@ -4,8 +4,8 @@ import re
 
 # ========== 基本設定 ==========
 script_dir = os.path.dirname(os.path.abspath(__file__))
-INPUT_DIR = os.path.join(script_dir, "../data/filtered_cases")          # 你的原始 JSON 根目錄
-OUTPUT_JSONL = os.path.join(script_dir, "../data/traffic_cases_chunks.jsonl")
+INPUT_DIR = os.path.join(script_dir, "../data/filtered_cases_evaluation")          # 你的原始 JSON 根目錄
+OUTPUT_JSONL = os.path.join(script_dir, "../data/traffic_cases_chunks_evaluation.jsonl")
 KEYWORD = "道路交通管理處罰條例"
 
 # chunk 長度與 overlap 設定
