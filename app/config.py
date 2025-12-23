@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     RERANK_TOP_N: int = 5
 
     # LLM Settings
-    LLM_MODEL: str = "Qwen/Qwen2.5-0.5B-Instruct"
-    LLM_PROVIDER: str = "huggingface"  # "openai" or "huggingface"
+    LLM_MODEL: str = "gpt-5-nano"
+    LLM_PROVIDER: str = "openai"  # "openai" or "huggingface"
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 2000
     LLM_TIMEOUT: int = 30
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Embedding Settings
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
     EMBEDDING_DIMENSION: int = 1024
-    EMBEDDING_PROVIDER: str = "huggingface"  # "openai" or "huggingface"
+    EMBEDDING_PROVIDER: str = "huggingface"
 
     # VLM Settings (Optional)
     ENABLE_VLM: bool = False
@@ -58,6 +58,5 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
-
 
 settings = Settings()

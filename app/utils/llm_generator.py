@@ -42,13 +42,8 @@ class LLMGenerator:
         
         print(f"Loading HuggingFace model: {self.model_name}...")
         
-        # Determine device
-        if torch.cuda.is_available():
-            self.device = "cuda"
-        elif torch.backends.mps.is_available():
-            self.device = "mps"  # Apple Silicon
-        else:
-            self.device = "cpu"
+        # Force CPU to avoid GPU memory issues
+        self.device = "cpu"
         
         print(f"Using device: {self.device}")
         
@@ -59,10 +54,10 @@ class LLMGenerator:
         
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
-            torch_dtype=torch.float16 if self.device != "cpu" else torch.float32,
-            device_map="auto",
+            torch_dtype=torch.float32,  # Use float32 for CPU
+            device_map=None,  # Disable auto device mapping
             trust_remote_code=True
-        )
+        ).to(self.device)  # Explicitly move to CPU
         
         print(f"Model loaded successfully!")
 
