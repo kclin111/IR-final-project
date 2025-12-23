@@ -133,11 +133,3 @@ mypy app/
 ### SQLite Tables
 
 - `kp_app_mapping` - KP-Case 對齊表
-
-## 評測指標
-
-- Hit@5 (Statutes): ≥ 0.70
-- Hit@5 (Cases): ≥ 0.60
-- Alignment Precision: ≥ 0.65
-- 幻覺率: ≤ 5%
-- 平均延遲: ≤ 3s
